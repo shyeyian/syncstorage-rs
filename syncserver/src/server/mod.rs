@@ -1,6 +1,8 @@
 //! Main application server
 
-use std::{convert::Infallible, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    convert::Infallible, fs::File, io::BufReader, num::NonZeroUsize, sync::Arc, time::Duration,
+};
 
 use actix_cors::Cors;
 use actix_web::{
@@ -384,6 +386,10 @@ impl Server {
         )?;
         let host = settings.host.clone();
         let port = settings.port;
+        let tls_config = settings
+            .tls_enabled()
+            .then(|| load_rustls_config(&settings))
+            .transpose()?;
         let deadman = Arc::new(RwLock::new(Deadman::from(&settings.syncstorage)));
         let blocking_threadpool = Arc::new(BlockingThreadpool::new(
             settings.worker_max_blocking_threads,
@@ -497,11 +503,15 @@ impl Server {
             server = server.keep_alive(Duration::from_secs(keep_alive as u64));
         }
 
-        let server = server
-            .worker_max_blocking_threads(worker_thread_count)
-            .bind(format!("{}:{}", host, port))
-            .expect("Could not get Server in Server::with_settings")
-            .run();
+        let addr = format!("{}:{}", host, port);
+        let server = server.worker_max_blocking_threads(worker_thread_count);
+        let server = if let Some(tls_config) = tls_config {
+            server.bind_rustls_0_23(addr, tls_config)
+        } else {
+            server.bind(addr)
+        }
+        .expect("Could not get Server in Server::with_settings")
+        .run();
         Ok(server)
     }
 
@@ -512,6 +522,10 @@ impl Server {
 
         let host = settings.host.clone();
         let port = settings.port;
+        let tls_config = settings
+            .tls_enabled()
+            .then(|| load_rustls_config(&settings))
+            .transpose()?;
         let secrets = Arc::new(settings.master_secret.clone());
         // Adjust the thread count to include FxA blocking threads.
         let thread_count = settings.worker_max_blocking_threads
@@ -549,11 +563,15 @@ impl Server {
             )
         });
 
-        let server = server
-            .worker_max_blocking_threads(worker_thread_count)
-            .bind(format!("{}:{}", host, port))
-            .expect("Could not get Server in Server::with_settings")
-            .run();
+        let addr = format!("{}:{}", host, port);
+        let server = server.worker_max_blocking_threads(worker_thread_count);
+        let server = if let Some(tls_config) = tls_config {
+            server.bind_rustls_0_23(addr, tls_config)
+        } else {
+            server.bind(addr)
+        }
+        .expect("Could not get Server in Server::with_settings")
+        .run();
         Ok(server)
     }
 }
@@ -561,6 +579,42 @@ impl Server {
 fn calculate_worker_max_blocking_threads(count: usize) -> usize {
     let parallelism = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
     std::cmp::max(count / parallelism, 1)
+}
+
+/// Loads a `rustls::ServerConfig` from the `tls_cert_path`/`tls_key_path`
+/// settings, so the server can terminate HTTPS itself instead of requiring a
+/// reverse proxy (e.g. nginx) in front of it. Only called once both settings
+/// have already been confirmed present via `Settings::tls_enabled`.
+fn load_rustls_config(settings: &Settings) -> Result<rustls::ServerConfig, ApiError> {
+    let cert_path = settings
+        .tls_cert_path
+        .as_deref()
+        .expect("tls_enabled() checked tls_cert_path is set");
+    let key_path = settings
+        .tls_key_path
+        .as_deref()
+        .expect("tls_enabled() checked tls_key_path is set");
+
+    let mut cert_file = BufReader::new(
+        File::open(cert_path)
+            .map_err(|e| ApiError::internal(format!("Couldn't open TLS cert {cert_path}: {e}")))?,
+    );
+    let mut key_file = BufReader::new(
+        File::open(key_path)
+            .map_err(|e| ApiError::internal(format!("Couldn't open TLS key {key_path}: {e}")))?,
+    );
+
+    let cert_chain = rustls_pemfile::certs(&mut cert_file)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| ApiError::internal(format!("Couldn't parse TLS cert {cert_path}: {e}")))?;
+    let key = rustls_pemfile::private_key(&mut key_file)
+        .map_err(|e| ApiError::internal(format!("Couldn't parse TLS key {key_path}: {e}")))?
+        .ok_or_else(|| ApiError::internal(format!("No private key found in {key_path}")))?;
+
+    rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(cert_chain, key)
+        .map_err(|e| ApiError::internal(format!("Invalid TLS cert/key pair: {e}")))
 }
 
 /// Serializes `ServerLimits`, then injects a `collections` section for any overrides.

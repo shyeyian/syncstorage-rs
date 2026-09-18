@@ -30,6 +30,14 @@ pub struct Settings {
     /// that are used during Hawk authentication.
     pub master_secret: Secrets,
 
+    /// Path to a PEM-encoded TLS certificate (chain). When set together with
+    /// `tls_key_path`, the server listens for HTTPS directly instead of
+    /// plain HTTP, so no reverse proxy (e.g. nginx) is needed for TLS
+    /// termination. Default: unset (plain HTTP).
+    pub tls_cert_path: Option<String>,
+    /// Path to the PEM-encoded private key matching `tls_cert_path`.
+    pub tls_key_path: Option<String>,
+
     /// Emit human-readable logs instead of mozlog JSON. Default: false.
     /// Production environments should leave this off (JSON is preferred).
     pub human_logs: bool,
@@ -178,6 +186,14 @@ impl Settings {
             ));
         }
 
+        // TLS cert/key must be configured together, not just one of the two.
+        if self.tls_cert_path.is_some() != self.tls_key_path.is_some() {
+            return Err(ConfigError::Message(
+                "SYNC_TLS_CERT_PATH and SYNC_TLS_KEY_PATH must both be set to enable HTTPS"
+                    .to_owned(),
+            ));
+        }
+
         // overriding limits must be > 0 and validate names while we're at it
         let coll_regex = Regex::new(&format!("^{}$", COLLECTION_ID_REGEX)).unwrap();
         for (name, overrides) in &self.syncstorage.limits.collections {
@@ -244,6 +260,11 @@ impl Settings {
         Ok(())
     }
 
+    /// Whether both TLS settings are configured, enabling direct HTTPS.
+    pub fn tls_enabled(&self) -> bool {
+        self.tls_cert_path.is_some() && self.tls_key_path.is_some()
+    }
+
     #[cfg(debug_assertions)]
     pub fn test_settings() -> Self {
         let mut settings =
@@ -273,6 +294,7 @@ impl Settings {
         let db = Url::parse(&self.syncstorage.database_url)
             .map(|url| url.scheme().to_owned())
             .unwrap_or_else(|_| "<invalid db>".to_owned());
+        let scheme = if self.tls_enabled() { "https" } else { "http" };
         let parallelism = format!(
             "available_parallelism: {:?} num_cpus: {} num_cpus (phys): {}",
             std::thread::available_parallelism(),
@@ -280,7 +302,7 @@ impl Settings {
             num_cpus::get_physical()
         );
         format!(
-            "http://{}:{} ({db}) ({parallelism}) {quota}",
+            "{scheme}://{}:{} ({db}) ({parallelism}) {quota}",
             self.host, self.port
         )
     }
@@ -293,6 +315,8 @@ impl Default for Settings {
             host: "127.0.0.1".to_string(),
             actix_keep_alive: None,
             master_secret: Secrets::default(),
+            tls_cert_path: None,
+            tls_key_path: None,
             statsd_host: Some("localhost".to_owned()),
             statsd_port: 8125,
             include_hostname_tag: false,

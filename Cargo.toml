@@ -33,7 +33,7 @@ rust-version = "1.91" # RUST_VER
 license = "MPL-2.0"
 
 [workspace.dependencies]
-actix-web = { version = "4", default-features = false, features = ["compat", "http2", "macros"] }
+actix-web = { version = "4", default-features = false, features = ["compat", "http2", "macros", "rustls-0_23"] }
 async-trait = "0.1.89"
 docopt = "1.1"
 base64 = "0.23"
@@ -70,6 +70,8 @@ regex = "1.12"
 reqwest = { version = "0.13.3", default-features = false, features = [
   "rustls",
 ] }
+rustls = "0.23"
+rustls-pemfile = "2"
 sentry = { version = "0.46.2" }
 sentry-backtrace = "0.46.2"
 serde = "1.0"

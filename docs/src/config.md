@@ -38,6 +38,8 @@ The following configuration options are available.
 | <span id="SYNC_ENVIRONMENT"></span>SYNC_ENVIRONMENT | dev | Environment name ("dev", "stage", "prod") |
 | <span id="SYNC_HUMAN_LOGS"></span>SYNC_HUMAN_LOGS | false | Enable human-readable logs |
 | <span id="SYNC_ACTIX_KEEP_ALIVE"></span>SYNC_ACTIX_KEEP_ALIVE | None | HTTP keep-alive header value in seconds |
+| <span id="SYNC_TLS_CERT_PATH"></span>SYNC_TLS_CERT_PATH | None | Path to a PEM-encoded TLS certificate (chain). Set together with `SYNC_TLS_KEY_PATH` to terminate HTTPS directly, without a reverse proxy |
+| <span id="SYNC_TLS_KEY_PATH"></span>SYNC_TLS_KEY_PATH | None | Path to the PEM-encoded private key matching `SYNC_TLS_CERT_PATH` |
 | <span id="SYNC_WORKER_MAX_BLOCKING_THREADS"></span>SYNC_WORKER_MAX_BLOCKING_THREADS | 512 | The maximum number of blocking threads in the worker threadpool. This threadpool is used by Actix-web to handle blocking operations. |
 
 ### CORS
