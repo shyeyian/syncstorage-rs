@@ -23,6 +23,11 @@
 #
 # Set SYNC_MASTER_SECRET to your own value for anything beyond local
 # experimentation; the default below is a placeholder.
+#
+# To terminate HTTPS directly instead of plain HTTP (no reverse proxy
+# needed), uncomment the SYNC_TLS_CERT_PATH/SYNC_TLS_KEY_PATH env vars and
+# the tls volume mount below, after generating a cert/key pair, e.g.:
+#   openssl req -x509 -newkey rsa:2048 -keyout tls/tls.key -out tls/tls.cert -days 1 -nodes -subj "/CN=localhost"
 
 services:
   syncserver:
@@ -50,8 +55,12 @@ services:
       SYNC_HUMAN_LOGS: "${SYNC_HUMAN_LOGS:-false}"
       RUST_LOG: "${RUST_LOG:-info}"
       SYNC_TOKENSERVER__INIT_NODE_URL: "${SYNC_TOKENSERVER__INIT_NODE_URL:-http://localhost:${SYNC_PORT:-8000}}"
+      # Direct HTTPS (optional, see the header comment above):
+      # SYNC_TLS_CERT_PATH: "/tls/tls.cert"
+      # SYNC_TLS_KEY_PATH: "/tls/tls.key"
     volumes:
       - sqlite_data:/data
+      # - ./tls:/tls:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${SYNC_PORT:-8000}/__heartbeat__"]

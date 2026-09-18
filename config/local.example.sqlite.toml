@@ -33,6 +33,15 @@ master_secret = "INSERT_SECRET_KEY_HERE"
 host = "127.0.0.1"
 port = 8000
 
+# Direct HTTPS (optional). When both are set, the server terminates TLS
+# itself and no reverse proxy (e.g. nginx) is needed in front of it. Leave
+# both unset for plain HTTP. Default: unset (plain HTTP).
+#
+# Generate a quick self-signed pair for local testing with:
+#   openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.cert -days 1 -nodes -subj "/CN=localhost"
+# tls_cert_path = "/path/to/tls.cert"
+# tls_key_path = "/path/to/tls.key"
+
 # Emit human-readable logs instead of mozlog JSON. Default: false (0).
 human_logs = 1
 
