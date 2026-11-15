@@ -32,6 +32,10 @@ master_secret = "INSERT_SECRET_KEY_HERE"
 host = "127.0.0.1"
 port = 8000
 
+# HTTPS (optional). Default: unset (plain HTTP).
+# tls_cert_path = "/path/to/tls.cert"
+# tls_key_path = "/path/to/tls.key"
+
 # Emit human-readable logs instead of mozlog JSON. Default: false (0).
 # Leave JSON logging on for production; it is the format our tooling expects.
 human_logs = 1
