@@ -939,6 +939,50 @@ mod test {
     }
 
     #[test]
+    fn test_tls_cert_and_key_must_be_set_together() {
+        // Setting only one of the two must fail fast rather than silently
+        // serving plain HTTP.
+        for (cert, key) in [(Some("/tls/tls.cert"), None), (None, Some("/tls/tls.key"))] {
+            temp_env::with_vars(
+                [
+                    (
+                        "SYNC_SYNCSTORAGE__DATABASE_URL",
+                        Some(TEST_SYNCSTORAGE_DATABASE_URL),
+                    ),
+                    ("SYNC_TLS_CERT_PATH", cert),
+                    ("SYNC_TLS_KEY_PATH", key),
+                ],
+                || {
+                    let err = Settings::with_env_and_config_file(None)
+                        .expect_err("only one of the TLS paths should fail validation")
+                        .to_string();
+                    assert!(
+                        err.contains("SYNC_TLS_CERT_PATH") && err.contains("SYNC_TLS_KEY_PATH"),
+                        "rejected for the wrong reason: {err}"
+                    );
+                },
+            );
+        }
+
+        // Both set enables direct HTTPS.
+        temp_env::with_vars(
+            [
+                (
+                    "SYNC_SYNCSTORAGE__DATABASE_URL",
+                    Some(TEST_SYNCSTORAGE_DATABASE_URL),
+                ),
+                ("SYNC_TLS_CERT_PATH", Some("/tls/tls.cert")),
+                ("SYNC_TLS_KEY_PATH", Some("/tls/tls.key")),
+            ],
+            || {
+                let settings = Settings::with_env_and_config_file(None)
+                    .expect("both TLS paths set should validate");
+                assert!(settings.tls_enabled());
+            },
+        );
+    }
+
+    #[test]
     fn test_collection_deletion_confirmation_setting_values() {
         assert!(
             !Settings::default()
