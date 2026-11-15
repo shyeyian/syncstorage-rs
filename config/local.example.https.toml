@@ -1,0 +1,44 @@
+# =============================================================================
+# Direct HTTPS configuration (MySQL build)
+# =============================================================================
+#
+# A minimal template for terminating TLS in the server itself, with no reverse
+# proxy (e.g. nginx) in front of it. Only the TLS-specific settings are
+# explained here; see `config/local.example.toml` for the rest of the settings
+# and docs/src/config.md for the full reference.
+#
+# Copy it to `config/local.toml` and edit the values marked REQUIRED:
+#
+#     cp config/local.example.https.toml config/local.toml
+#
+# Generate a self-signed certificate and key for local testing with:
+#
+#     openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.cert \
+#         -days 1 -nodes -subj "/CN=localhost"
+#
+# Then check it with `curl --cacert tls.cert https://localhost:8000/__heartbeat__`.
+# =============================================================================
+
+# REQUIRED. Secret used to derive the Hawk signing/token secrets.
+master_secret = "INSERT_SECRET_KEY_HERE"
+
+host = "127.0.0.1"
+port = 8000
+
+# REQUIRED for HTTPS. PEM-encoded certificate (chain) and its private key. They
+# must be set together: setting only one stops the server at startup. When both
+# are unset the server serves plain HTTP.
+tls_cert_path = "/path/to/tls.cert"
+tls_key_path = "/path/to/tls.key"
+
+human_logs = 1
+
+syncstorage.database_url = "mysql://sample_user:sample_password@localhost/syncstorage_rs"
+syncstorage.enable_quota = 0
+
+tokenserver.enabled = true
+tokenserver.database_url = "mysql://sample_user:sample_password@localhost/tokenserver_rs"
+tokenserver.node_type = "mysql"
+tokenserver.fxa_email_domain = "api-accounts.stage.mozaws.net"
+tokenserver.fxa_oauth_server_url = "https://oauth.stage.mozaws.net"
+tokenserver.fxa_metrics_hash_secret = "INSERT_SECRET_KEY_HERE"
